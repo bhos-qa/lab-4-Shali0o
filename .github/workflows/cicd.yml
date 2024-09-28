@@ -1,0 +1,47 @@
+name: Custom Sonar Scan
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Java 21 Environment
+        uses: actions/setup-java@v1
+        with:
+          java-version: '21'
+
+      - name: Cache Project Dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x gradlew
+
+      - name: Execute Gradle Build
+        run: ./gradlew build
+
+      - name: Run Unit Tests and Generate Jacoco Report
+        run: ./gradlew test jacocoTestReport
+
+      - name: Perform SonarCloud Analysis
+        uses: sonarsource/sonarcloud-github-action@v3.0.0
+        with:
+          projectBaseDir: '.'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Upload Jacoco Test Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: jacoco-html-report
+          path: app/build/reports/jacoco/test/html/index.html
